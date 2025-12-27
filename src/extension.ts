@@ -15,9 +15,21 @@ let startLine = 0;
 export function activate(context: vscode.ExtensionContext) {
   console.log("Auto Scroll Extension Activated");
 
-  const start = vscode.commands.registerCommand("autoScroll.start", () => {
-    vscode.window.showInformationMessage("Auto Scroll Started");
+  // Check for updates on activation (delayed by 5 seconds)
+  setTimeout(() => {
+    checkForUpdatesAutomatically(context);
+  }, 5000);
 
+  // Check for updates every 24 hours
+  const updateCheckInterval = setInterval(() => {
+    checkForUpdatesAutomatically(context);
+  }, 24 * 60 * 60 * 1000); // 24 hours
+
+  context.subscriptions.push({
+    dispose: () => clearInterval(updateCheckInterval),
+  });
+
+  const start = vscode.commands.registerCommand("autoScroll.start", () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
       vscode.window.showWarningMessage("No active editor");
@@ -193,22 +205,10 @@ export function activate(context: vscode.ExtensionContext) {
       clearTimeout(userIdleTimeout);
     }
 
-    // Show status message if enabled
-    if (showNotifications && autoResume) {
-      vscode.window.showInformationMessage(
-        `Auto Scroll paused (resuming in ${idleTimeout}s if no interaction)`
-      );
-    } else if (showNotifications) {
-      vscode.window.showInformationMessage("Auto Scroll paused");
-    }
-
     // Set timeout to resume scrolling if autoResume is enabled
     if (autoResume) {
       userIdleTimeout = setTimeout(() => {
         if (isAutoScrollActive) {
-          if (showNotifications) {
-            vscode.window.showInformationMessage("Auto Scroll resumed");
-          }
           startScrolling();
         }
       }, idleTimeout * 1000);
@@ -232,8 +232,6 @@ export function activate(context: vscode.ExtensionContext) {
     // Clean up event listeners
     disposables.forEach((d) => d.dispose());
     disposables = [];
-
-    vscode.window.showInformationMessage("Auto Scroll Stopped");
   });
 
   const checkUpdates = vscode.commands.registerCommand(
@@ -288,6 +286,59 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(start, stop, checkUpdates);
+}
+
+async function checkForUpdatesAutomatically(context: vscode.ExtensionContext) {
+  try {
+    const currentVersion = vscode.extensions.getExtension(
+      "local.vscode-auto-scroll-and-switch"
+    )?.packageJSON.version;
+
+    const latestVersion = await getLatestVersion();
+
+    if (!latestVersion || latestVersion === currentVersion) {
+      return; // No update available
+    }
+
+    // Check if user already dismissed this version
+    const dismissedVersion = context.globalState.get<string>(
+      "dismissedUpdateVersion"
+    );
+    if (dismissedVersion === latestVersion) {
+      return; // User already dismissed this version
+    }
+
+    // Show update notification
+    const selection = await vscode.window.showInformationMessage(
+      `🎉 Auto Scroll v${latestVersion} is available! (current: v${currentVersion})`,
+      "Download & Install",
+      "View Release",
+      "Dismiss"
+    );
+
+    if (selection === "Download & Install") {
+      vscode.env.openExternal(
+        vscode.Uri.parse(
+          "https://github.com/Shahzad-Official/vscode-auto-scroll-and-switch/releases/latest"
+        )
+      );
+      vscode.window.showInformationMessage(
+        "💡 Download the .vsix file and run: code --install-extension <filename>.vsix"
+      );
+    } else if (selection === "View Release") {
+      vscode.env.openExternal(
+        vscode.Uri.parse(
+          "https://github.com/Shahzad-Official/vscode-auto-scroll-and-switch/releases/latest"
+        )
+      );
+    } else if (selection === "Dismiss") {
+      // Remember dismissed version
+      context.globalState.update("dismissedUpdateVersion", latestVersion);
+    }
+  } catch (error) {
+    // Silently fail for automatic checks
+    console.error("Auto update check failed:", error);
+  }
 }
 
 export function deactivate() {
