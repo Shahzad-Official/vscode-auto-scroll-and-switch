@@ -1,17 +1,28 @@
+# Development files
 .vscode/**
 .vscode-test/**
-src/**
 .gitignore
 .yarnrc
 vsc-extension-quickstart.md
-**/tsconfig.json
-**/eslint.config.mjs
-**/*.map
-**/*.ts
-**/.vscode-test.*
 
-# Exclude node_modules to reduce package size
+# Source TypeScript files (keep compiled JS in out/)
+src/**
+tsconfig.json
+eslint.config.mjs
+**/*.map
+
+# Dependencies
 node_modules/**
 
-# Exclude test files
+# Test files
 **/test/**
+
+# Development scripts
+release.sh
+install.sh
+install.bat
+
+# Git and CI
+.git/**
+.gitignore
+.github/**

@@ -2,7 +2,7 @@
   "name": "vscode-auto-scroll-and-switch",
   "displayName": "Auto Scroll And Switch",
   "description": "Automatically scroll through files and switch between tabs for monitoring and presentations",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "publisher": "local",
   "license": "MIT",
   "repository": {
