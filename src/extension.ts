@@ -224,14 +224,34 @@ export function activate(context: vscode.ExtensionContext) {
     isScrollingPaused = true;
 
     try {
-      // Insert new comment
+      // Insert new comment with typing animation
       const position = new vscode.Position(lineNumber, 0);
       const lineText = editor.document.lineAt(lineNumber).text;
       const indentation = lineText.match(/^\s*/)?.[0] || "";
 
+      const fullText = `${indentation}${commentText}\n`;
+
+      // Insert empty line first
       await editor.edit((editBuilder) => {
-        editBuilder.insert(position, `${indentation}${commentText}\n`);
+        editBuilder.insert(position, `${indentation}\n`);
       });
+
+      // Type character by character with realistic typing speed
+      for (let i = 0; i < commentText.length; i++) {
+        const char = commentText[i];
+        const currentPos = new vscode.Position(
+          lineNumber,
+          indentation.length + i
+        );
+
+        await editor.edit((editBuilder) => {
+          editBuilder.insert(currentPos, char);
+        });
+
+        // Random typing speed between 30-80ms per character for realistic effect
+        const typingDelay = Math.random() * 50 + 30;
+        await new Promise((resolve) => setTimeout(resolve, typingDelay));
+      }
 
       // Store comment info for later deletion
       lastCommentPosition = {
@@ -255,7 +275,7 @@ export function activate(context: vscode.ExtensionContext) {
       console.error("Failed to insert comment:", error);
     }
 
-    // Resume scrolling immediately after insertion
+    // Resume scrolling after typing animation
     setTimeout(() => {
       isScrollingPaused = wasScrollingPaused;
     }, 100);
