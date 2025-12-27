@@ -35,7 +35,9 @@
     "compile": "tsc -p ./"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "vscode": "^1.85.0"
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.0.0"
   }
 }
