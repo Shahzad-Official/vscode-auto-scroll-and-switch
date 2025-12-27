@@ -1,14 +1,15 @@
 {
   "name": "vscode-auto-scroll-and-switch",
-  "displayName": "vscode_auto_scroll_and_switch",
-  "description": "Auto scroll bidirection and switch tabs",
+  "displayName": "Auto Scroll And Switch",
   "version": "0.0.1",
-  "engines": {
-    "vscode": "^1.107.0"
+  "publisher": "local",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Shahzad-Official/vscode-auto-scroll-and-switch.git"
   },
-  "categories": [
-    "Other"
-  ],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
   "activationEvents": [
     "onCommand:autoScroll.start",
     "onCommand:autoScroll.stop"
@@ -21,27 +22,20 @@
         "title": "Auto Scroll: Start"
       },
       {
-        "command": "auto Scroll.stop",
+        "command": "autoScroll.stop",
         "title": "Auto Scroll: Stop"
+      },
+      {
+        "command": "autoScroll.checkUpdates",
+        "title": "Auto Scroll: Check for Updates"
       }
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
-    "test": "vscode-test"
+    "compile": "tsc -p ./"
   },
   "devDependencies": {
-    "@types/vscode": "^1.107.0",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "22.x",
-    "typescript-eslint": "^8.48.1",
-    "eslint": "^9.39.1",
-    "typescript": "^5.9.3",
-    "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2"
+    "typescript": "^5.0.0",
+    "vscode": "^1.85.0"
   }
 }
