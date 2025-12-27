@@ -11,6 +11,9 @@ let lastCycleComplete = false;
 let disposables: vscode.Disposable[] = [];
 let scrolledLinesCount = 0;
 let startLine = 0;
+let commentLinesSinceLastComment = 0;
+let pendingCommentDeletion: NodeJS.Timeout | undefined;
+let lastCommentPosition: { line: number; text: string } | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("Auto Scroll Extension Activated");
@@ -42,6 +45,8 @@ export function activate(context: vscode.ExtensionContext) {
     lastCycleComplete = false;
     scrolledLinesCount = 0;
     startLine = editor.selection.active.line;
+    commentLinesSinceLastComment = 0;
+    lastCommentPosition = undefined;
 
     // Start scrolling
     startScrolling();
@@ -91,6 +96,13 @@ export function activate(context: vscode.ExtensionContext) {
     const autoSwitchTabs = config.get<boolean>("autoSwitchTabs", true);
     const maxScrollLines = config.get<number>("maxScrollLines", 0);
     const scrollStep = config.get<number>("scrollStep", 1);
+    const enableComments = config.get<boolean>("enableComments", false);
+    const commentFrequency = config.get<number>("commentFrequency", 50);
+    const commentDuration = config.get<number>("commentDuration", 3);
+    const commentText = config.get<string>(
+      "commentText",
+      "// Auto Scroll Checkpoint"
+    );
 
     scrollInterval = setInterval(() => {
       if (isScrollingPaused) {
@@ -168,6 +180,17 @@ export function activate(context: vscode.ExtensionContext) {
 
       lastCycleComplete = false;
 
+      // Handle comment insertion
+      if (enableComments) {
+        commentLinesSinceLastComment += scrollStep;
+
+        // Check if it's time to insert a comment
+        if (commentLinesSinceLastComment >= commentFrequency) {
+          insertComment(currentEditor, lastLine, commentText, commentDuration);
+          commentLinesSinceLastComment = 0;
+        }
+      }
+
       const position = new vscode.Position(
         Math.max(0, Math.min(lastLine, maxLine)),
         0
@@ -178,6 +201,90 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.TextEditorRevealType.AtTop
       );
     }, scrollDelay);
+  }
+
+  async function insertComment(
+    editor: vscode.TextEditor,
+    lineNumber: number,
+    commentText: string,
+    duration: number
+  ) {
+    // Cancel any pending comment deletion
+    if (pendingCommentDeletion) {
+      clearTimeout(pendingCommentDeletion);
+    }
+
+    // Delete previous comment if exists
+    if (lastCommentPosition) {
+      await deleteComment(editor, lastCommentPosition);
+    }
+
+    // Pause scrolling temporarily
+    const wasScrollingPaused = isScrollingPaused;
+    isScrollingPaused = true;
+
+    try {
+      // Insert new comment
+      const position = new vscode.Position(lineNumber, 0);
+      const lineText = editor.document.lineAt(lineNumber).text;
+      const indentation = lineText.match(/^\s*/)?.[0] || "";
+
+      await editor.edit((editBuilder) => {
+        editBuilder.insert(position, `${indentation}${commentText}\n`);
+      });
+
+      // Store comment info for later deletion
+      lastCommentPosition = {
+        line: lineNumber,
+        text: commentText,
+      };
+
+      // Schedule comment deletion
+      pendingCommentDeletion = setTimeout(async () => {
+        if (lastCommentPosition && isAutoScrollActive) {
+          const currentEditor = vscode.window.activeTextEditor;
+          if (currentEditor) {
+            await deleteComment(currentEditor, lastCommentPosition);
+            lastCommentPosition = undefined;
+          }
+        }
+        // Resume scrolling after deletion
+        isScrollingPaused = wasScrollingPaused;
+      }, duration * 1000);
+    } catch (error) {
+      console.error("Failed to insert comment:", error);
+    }
+
+    // Resume scrolling immediately after insertion
+    setTimeout(() => {
+      isScrollingPaused = wasScrollingPaused;
+    }, 100);
+  }
+
+  async function deleteComment(
+    editor: vscode.TextEditor,
+    commentInfo: { line: number; text: string }
+  ) {
+    try {
+      const document = editor.document;
+      if (commentInfo.line >= document.lineCount) {
+        return;
+      }
+
+      const line = document.lineAt(commentInfo.line);
+      if (line.text.includes(commentInfo.text)) {
+        await editor.edit((editBuilder) => {
+          editBuilder.delete(
+            new vscode.Range(
+              new vscode.Position(commentInfo.line, 0),
+              new vscode.Position(commentInfo.line + 1, 0)
+            )
+          );
+        });
+      }
+    } catch (error) {
+      console.error("Failed to delete comment:", error);
+    }
   }
 
   function pauseScrollingForUserInteraction() {
@@ -226,8 +333,14 @@ export function activate(context: vscode.ExtensionContext) {
       userIdleTimeout = undefined;
     }
 
+    if (pendingCommentDeletion) {
+      clearTimeout(pendingCommentDeletion);
+      pendingCommentDeletion = undefined;
+    }
+
     isAutoScrollActive = false;
     isScrollingPaused = false;
+    lastCommentPosition = undefined;
 
     // Clean up event listeners
     disposables.forEach((d) => d.dispose());
@@ -347,6 +460,9 @@ export function deactivate() {
   }
   if (userIdleTimeout) {
     clearTimeout(userIdleTimeout);
+  }
+  if (pendingCommentDeletion) {
+    clearTimeout(pendingCommentDeletion);
   }
   disposables.forEach((d) => d.dispose());
   disposables = [];

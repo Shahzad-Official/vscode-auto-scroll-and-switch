@@ -2,7 +2,7 @@
   "name": "vscode-auto-scroll-and-switch",
   "displayName": "Auto Scroll And Switch",
   "description": "Automatically scroll through files and switch between tabs for monitoring and presentations",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "local",
   "license": "MIT",
   "repository": {
@@ -90,6 +90,30 @@
           "minimum": 1,
           "maximum": 50,
           "description": "Number of lines to scroll per step (1-50 lines)"
+        },
+        "autoScroll.enableComments": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable automatic comment insertion during scrolling"
+        },
+        "autoScroll.commentFrequency": {
+          "type": "number",
+          "default": 50,
+          "minimum": 1,
+          "maximum": 1000,
+          "description": "Insert a comment after scrolling this many lines"
+        },
+        "autoScroll.commentDuration": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "How long to keep the comment visible (in seconds) before deleting"
+        },
+        "autoScroll.commentText": {
+          "type": "string",
+          "default": "// ",
+          "description": "Text to insert as comment (e.g., '// Checkpoint', '# Reading here', '<!-- Marker -->')"
         }
       }
     }
