@@ -1,7 +1,7 @@
 {
   "name": "vscode-auto-scroll-and-switch",
   "displayName": "Auto Scroll And Switch",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "local",
   "repository": {
     "type": "git",

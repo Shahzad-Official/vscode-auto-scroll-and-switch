@@ -35,18 +35,6 @@ irm https://raw.githubusercontent.com/Shahzad-Official/vscode-auto-scroll-and-sw
    code --install-extension vscode-auto-scroll-and-switch-*.vsix
    ```
 
-### Option 3: Build from Source
-
-```bash
-git clone https://github.com/Shahzad-Official/vscode-auto-scroll-and-switch.git
-cd vscode-auto-scroll-and-switch
-npm install
-npm run compile
-npm install -g @vscode/vsce
-vsce package
-code --install-extension vscode-auto-scroll-and-switch-*.vsix
-```
-
 ## Usage
 
 Run commands from Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`):
@@ -70,13 +58,4 @@ Run the installation script again:
 ```bash
 ./install.sh  # Linux/macOS
 install.bat   # Windows
-```
-
-Or use git pull if you installed from source:
-
-```bash
-git pull
-npm run compile
-vsce package
-code --install-extension vscode-auto-scroll-and-switch-*.vsix
 ```
