@@ -2,6 +2,13 @@ import * as vscode from "vscode";
 import * as https from "https";
 
 let scrollInterval: NodeJS.Timeout | undefined;
+let userIdleTimeout: NodeJS.Timeout | undefined;
+let isScrollingPaused = false;
+let isAutoScrollActive = false;
+let lastLine = 0;
+let lastDirection: "down" | "up" = "down";
+let lastCycleComplete = false;
+let disposables: vscode.Disposable[] = [];
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("Auto Scroll Extension Activated");
@@ -15,56 +22,145 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
 
-    let line = 0;
-    let direction: "down" | "up" = "down";
-    let cycleComplete = false;
+    isAutoScrollActive = true;
+    lastLine = 0;
+    lastDirection = "down";
+    lastCycleComplete = false;
+
+    // Start scrolling
+    startScrolling();
+
+    // Listen for user interactions
+    const textChangeDisposable = vscode.workspace.onDidChangeTextDocument(
+      () => {
+        if (isAutoScrollActive) {
+          pauseScrollingForUserInteraction();
+        }
+      }
+    );
+
+    const selectionChangeDisposable =
+      vscode.window.onDidChangeTextEditorSelection((event) => {
+        if (isAutoScrollActive && !isScrollingPaused) {
+          // Only pause if this was a manual user interaction (not our automated scroll)
+          const currentEditor = vscode.window.activeTextEditor;
+          if (
+            currentEditor &&
+            event.textEditor === currentEditor &&
+            event.kind === vscode.TextEditorSelectionChangeKind.Mouse
+          ) {
+            pauseScrollingForUserInteraction();
+          }
+        }
+      });
+
+    disposables.push(textChangeDisposable, selectionChangeDisposable);
+    context.subscriptions.push(textChangeDisposable, selectionChangeDisposable);
+  });
+
+  function startScrolling() {
+    if (scrollInterval) {
+      clearInterval(scrollInterval);
+    }
+
+    isScrollingPaused = false;
 
     scrollInterval = setInterval(() => {
+      if (isScrollingPaused) {
+        return;
+      }
+
       const currentEditor = vscode.window.activeTextEditor;
       if (!currentEditor) {
         return;
       }
 
       const document = currentEditor.document;
-      const lastLine = document.lineCount - 1;
+      const maxLine = document.lineCount - 1;
 
-      if (direction === "down") {
-        line += 1;
-        if (line >= lastLine) {
-          direction = "up";
+      if (lastDirection === "down") {
+        lastLine += 1;
+        if (lastLine >= maxLine) {
+          lastDirection = "up";
         }
       } else {
-        line -= 1;
-        if (line <= 0) {
-          direction = "down";
-          cycleComplete = true;
+        lastLine -= 1;
+        if (lastLine <= 0) {
+          lastDirection = "down";
+          lastCycleComplete = true;
         }
       }
 
       // Switch to next tab after completing one bidirectional cycle
-      if (cycleComplete) {
+      if (lastCycleComplete) {
         vscode.commands.executeCommand("workbench.action.nextEditor");
-        line = 0;
-        direction = "down";
-        cycleComplete = false;
+        lastLine = 0;
+        lastDirection = "down";
+        lastCycleComplete = false;
         return;
       }
 
-      const position = new vscode.Position(line, 0);
+      const position = new vscode.Position(lastLine, 0);
       currentEditor.selection = new vscode.Selection(position, position);
       currentEditor.revealRange(
         new vscode.Range(position, position),
         vscode.TextEditorRevealType.AtTop
       );
     }, 1000); // ⬅️ DELAY IN MILLISECONDS (1000 = 1 second)
-  });
+  }
+
+  function pauseScrollingForUserInteraction() {
+    if (!isAutoScrollActive) {
+      return;
+    }
+
+    // Pause scrolling
+    isScrollingPaused = true;
+
+    // Save current cursor position
+    const currentEditor = vscode.window.activeTextEditor;
+    if (currentEditor) {
+      lastLine = currentEditor.selection.active.line;
+    }
+
+    // Clear existing idle timeout
+    if (userIdleTimeout) {
+      clearTimeout(userIdleTimeout);
+    }
+
+    // Show status message
+    vscode.window.showInformationMessage(
+      "Auto Scroll paused (resuming in 30s if no interaction)"
+    );
+
+    // Set 30-second timeout to resume scrolling
+    userIdleTimeout = setTimeout(() => {
+      if (isAutoScrollActive) {
+        vscode.window.showInformationMessage("Auto Scroll resumed");
+        startScrolling();
+      }
+    }, 30000); // 30 seconds
+  }
 
   const stop = vscode.commands.registerCommand("autoScroll.stop", () => {
     if (scrollInterval) {
       clearInterval(scrollInterval);
       scrollInterval = undefined;
-      vscode.window.showInformationMessage("Auto Scroll Stopped");
     }
+
+    if (userIdleTimeout) {
+      clearTimeout(userIdleTimeout);
+      userIdleTimeout = undefined;
+    }
+
+    isAutoScrollActive = false;
+    isScrollingPaused = false;
+
+    // Clean up event listeners
+    disposables.forEach((d) => d.dispose());
+    disposables = [];
+
+    vscode.window.showInformationMessage("Auto Scroll Stopped");
   });
 
   const checkUpdates = vscode.commands.registerCommand(
@@ -125,6 +221,11 @@ export function deactivate() {
   if (scrollInterval) {
     clearInterval(scrollInterval);
   }
+  if (userIdleTimeout) {
+    clearTimeout(userIdleTimeout);
+  }
+  disposables.forEach((d) => d.dispose());
+  disposables = [];
 }
 
 function getLatestVersion(): Promise<string | null> {
