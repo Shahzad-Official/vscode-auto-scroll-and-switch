@@ -29,8 +29,15 @@ jobs:
       - name: Compile TypeScript
         run: npm run compile
 
+      - name: List files before packaging
+        run: |
+          echo "Files in directory:"
+          ls -la
+          echo "Files in out/:"
+          ls -la out/
+
       - name: Package extension
-        run: vsce package
+        run: vsce package --no-dependencies
 
       - name: Get version from tag
         id: get_version
