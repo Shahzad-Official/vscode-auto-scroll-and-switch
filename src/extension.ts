@@ -9,6 +9,8 @@ let lastLine = 0;
 let lastDirection: "down" | "up" = "down";
 let lastCycleComplete = false;
 let disposables: vscode.Disposable[] = [];
+let scrolledLinesCount = 0;
+let startLine = 0;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("Auto Scroll Extension Activated");
@@ -26,6 +28,8 @@ export function activate(context: vscode.ExtensionContext) {
     lastLine = 0;
     lastDirection = "down";
     lastCycleComplete = false;
+    scrolledLinesCount = 0;
+    startLine = editor.selection.active.line;
 
     // Start scrolling
     startScrolling();
@@ -65,6 +69,17 @@ export function activate(context: vscode.ExtensionContext) {
 
     isScrollingPaused = false;
 
+    // Get configuration
+    const config = vscode.workspace.getConfiguration("autoScroll");
+    const scrollDelay = config.get<number>("scrollDelay", 1000);
+    const scrollDirection = config.get<string>(
+      "scrollDirection",
+      "bidirectional"
+    );
+    const autoSwitchTabs = config.get<boolean>("autoSwitchTabs", true);
+    const maxScrollLines = config.get<number>("maxScrollLines", 0);
+    const scrollStep = config.get<number>("scrollStep", 1);
+
     scrollInterval = setInterval(() => {
       if (isScrollingPaused) {
         return;
@@ -78,41 +93,91 @@ export function activate(context: vscode.ExtensionContext) {
       const document = currentEditor.document;
       const maxLine = document.lineCount - 1;
 
-      if (lastDirection === "down") {
-        lastLine += 1;
-        if (lastLine >= maxLine) {
-          lastDirection = "up";
-        }
-      } else {
-        lastLine -= 1;
-        if (lastLine <= 0) {
+      // Check if we've reached max scroll lines (if set)
+      if (maxScrollLines > 0 && scrolledLinesCount >= maxScrollLines) {
+        if (autoSwitchTabs) {
+          vscode.commands.executeCommand("workbench.action.nextEditor");
+          lastLine = 0;
           lastDirection = "down";
-          lastCycleComplete = true;
+          scrolledLinesCount = 0;
+          lastCycleComplete = false;
+          return;
+        } else {
+          // Reset to start if not switching tabs
+          lastLine = startLine;
+          scrolledLinesCount = 0;
+          lastDirection = "down";
+          return;
         }
       }
 
-      // Switch to next tab after completing one bidirectional cycle
-      if (lastCycleComplete) {
+      // Handle different scroll directions
+      if (scrollDirection === "downOnly") {
+        lastLine += scrollStep;
+        scrolledLinesCount += scrollStep;
+        if (lastLine >= maxLine) {
+          lastLine = 0;
+          lastCycleComplete = true;
+        }
+      } else if (scrollDirection === "upOnly") {
+        lastLine -= scrollStep;
+        scrolledLinesCount += scrollStep;
+        if (lastLine <= 0) {
+          lastLine = maxLine;
+          lastCycleComplete = true;
+        }
+      } else {
+        // bidirectional
+        if (lastDirection === "down") {
+          lastLine += scrollStep;
+          scrolledLinesCount += scrollStep;
+          if (lastLine >= maxLine) {
+            lastDirection = "up";
+          }
+        } else {
+          lastLine -= scrollStep;
+          scrolledLinesCount += scrollStep;
+          if (lastLine <= 0) {
+            lastDirection = "down";
+            lastCycleComplete = true;
+          }
+        }
+      }
+
+      // Switch to next tab after completing one scroll cycle (only if maxScrollLines not set)
+      if (lastCycleComplete && autoSwitchTabs && maxScrollLines === 0) {
         vscode.commands.executeCommand("workbench.action.nextEditor");
         lastLine = 0;
         lastDirection = "down";
+        scrolledLinesCount = 0;
         lastCycleComplete = false;
         return;
       }
 
-      const position = new vscode.Position(lastLine, 0);
+      lastCycleComplete = false;
+
+      const position = new vscode.Position(
+        Math.max(0, Math.min(lastLine, maxLine)),
+        0
+      );
       currentEditor.selection = new vscode.Selection(position, position);
       currentEditor.revealRange(
         new vscode.Range(position, position),
         vscode.TextEditorRevealType.AtTop
       );
-    }, 1000); // ⬅️ DELAY IN MILLISECONDS (1000 = 1 second)
+    }, scrollDelay);
   }
 
   function pauseScrollingForUserInteraction() {
     if (!isAutoScrollActive) {
       return;
     }
+
+    // Get configuration
+    const config = vscode.workspace.getConfiguration("autoScroll");
+    const autoResume = config.get<boolean>("autoResume", true);
+    const idleTimeout = config.get<number>("idleTimeout", 30);
+    const showNotifications = config.get<boolean>("showNotifications", true);
 
     // Pause scrolling
     isScrollingPaused = true;
@@ -128,18 +193,26 @@ export function activate(context: vscode.ExtensionContext) {
       clearTimeout(userIdleTimeout);
     }
 
-    // Show status message
-    vscode.window.showInformationMessage(
-      "Auto Scroll paused (resuming in 30s if no interaction)"
-    );
+    // Show status message if enabled
+    if (showNotifications && autoResume) {
+      vscode.window.showInformationMessage(
+        `Auto Scroll paused (resuming in ${idleTimeout}s if no interaction)`
+      );
+    } else if (showNotifications) {
+      vscode.window.showInformationMessage("Auto Scroll paused");
+    }
 
-    // Set 30-second timeout to resume scrolling
-    userIdleTimeout = setTimeout(() => {
-      if (isAutoScrollActive) {
-        vscode.window.showInformationMessage("Auto Scroll resumed");
-        startScrolling();
-      }
-    }, 30000); // 30 seconds
+    // Set timeout to resume scrolling if autoResume is enabled
+    if (autoResume) {
+      userIdleTimeout = setTimeout(() => {
+        if (isAutoScrollActive) {
+          if (showNotifications) {
+            vscode.window.showInformationMessage("Auto Scroll resumed");
+          }
+          startScrolling();
+        }
+      }, idleTimeout * 1000);
+    }
   }
 
   const stop = vscode.commands.registerCommand("autoScroll.stop", () => {

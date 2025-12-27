@@ -2,7 +2,7 @@
   "name": "vscode-auto-scroll-and-switch",
   "displayName": "Auto Scroll And Switch",
   "description": "Automatically scroll through files and switch between tabs for monitoring and presentations",
-  "version": "0.0.6",
+  "version": "1.0.0",
   "publisher": "local",
   "license": "MIT",
   "repository": {
@@ -34,7 +34,65 @@
         "command": "autoScroll.checkUpdates",
         "title": "Auto Scroll: Check for Updates"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Auto Scroll",
+      "properties": {
+        "autoScroll.scrollDelay": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 100,
+          "maximum": 10000,
+          "description": "Delay between scroll steps in milliseconds (100-10000ms)"
+        },
+        "autoScroll.idleTimeout": {
+          "type": "number",
+          "default": 30,
+          "minimum": 5,
+          "maximum": 300,
+          "description": "Seconds to wait before auto-resuming after user interaction (5-300s)"
+        },
+        "autoScroll.autoResume": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically resume scrolling after idle timeout"
+        },
+        "autoScroll.showNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show pause/resume notifications"
+        },
+        "autoScroll.scrollDirection": {
+          "type": "string",
+          "enum": [
+            "bidirectional",
+            "downOnly",
+            "upOnly"
+          ],
+          "default": "bidirectional",
+          "description": "Direction of scrolling: bidirectional (up and down), downOnly, or upOnly"
+        },
+        "autoScroll.autoSwitchTabs": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically switch to next tab after completing a scroll cycle"
+        },
+        "autoScroll.maxScrollLines": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 10000,
+          "description": "Maximum number of lines to scroll before switching tabs (0 = scroll entire file)"
+        },
+        "autoScroll.scrollStep": {
+          "type": "number",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Number of lines to scroll per step (1-50 lines)"
+        }
+      }
+    }
   },
   "scripts": {
     "compile": "tsc -p ./"
